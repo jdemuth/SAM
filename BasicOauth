@@ -1,0 +1,68 @@
+import json
+import base64
+import urllib.request
+import os
+
+def fnGetToken():
+    url = os.environ['authurl']
+    headers = {}
+    key = os.environ['okey']
+    secret = os.environ['osecret']
+    authHeader = 'Basic ' + str(base64.b64encode(bytes((key + ':' + secret), 'utf-8')), "utf-8")
+    headers['Authorization'] = authHeader
+    headers['ContentType'] = 'application/x-www-form-urlencoded;charset=UTF-8'
+    data = "grant_type=client_credentials"
+    req = urllib.request.Request(url, headers = headers, method = 'POST')
+    response = urllib.request.urlopen(req, data.encode('utf-8'))
+    respData = response.read()
+    data = json.loads(respData)
+    return data['access_token']
+    
+def fnGetFeed(token):
+    screenname = os.environ['screenname']
+    url = str(os.environ['apiurl']) + screenname
+    headers = {}
+    authHeader = 'bearer ' + token
+    headers['Authorization'] = authHeader
+    req = urllib.request.Request(url, headers = headers)
+    response = urllib.request.urlopen(req)
+    respData = response.read()
+    data = json.loads(respData)
+    #print(data)
+    return data
+    
+def left(s, amount):
+    return s[:amount]
+    
+
+def lambda_handler(event, context):
+    token = fnGetToken()
+    data = fnGetFeed(token)
+    lst = []
+    lst.append("<b>Feed</b>")
+    lst.append("<br>")
+    for item in data:
+        url = ''
+        try:
+            url = str(item['entities']['media'][0]['url'])
+        except Exception as e:
+            print(e)
+        try:
+            url = str(item['entities']['urls'][0]['url'])
+        except Exception as e:
+            print(e)
+        if url != '':
+            lst.append('<a target=”_blank” href="')
+            lst.append(url)
+            lst.append('">')
+        lst.append(left(item['created_at'],10))
+        lst.append("-")
+        lst.append(item['text'])
+        if url != '':
+            lst.append("</a>")
+        lst.append("<hr>")
+   
+    strjoin = ''
+    data = {}
+    data['data'] = strjoin.join(lst)
+    return data
